@@ -1,0 +1,74 @@
+Projeto Final: Sistema de Defesa Ativa (EDR) com Mini filtro de Kernel
+Grupo: Cryptolock
+Curso: Defesa Cibernética - FIAP
+Data: 02/10/2025
+
+1. Resumo do Projeto 
+Este projeto consiste no desenvolvimento de um protótipo funcional de um sistema de EDR (Endpoint Detection and Response), projetado para monitorizar o sistema operativo Windows a baixo nível e responder em tempo real a comportamentos suspeitos associados a ataques de ransomware. A solução implementa uma arquitetura de dois níveis, padrão da indústria, composta por um driver de mini filtro em modo kernel e um serviço de análise em modo de utilizador, demonstrando uma abordagem proativa e comportamental à cibersegurança.
+
+2. O Problema: A Ameaça do Ransomware
+Ataques de ransomware representam uma das ameaças mais devastadoras no cenário atual da cibersegurança. Soluções de antivírus tradicionais, muitas vezes baseadas em assinaturas de ficheiros, são reativas e podem ser ineficazes contra variantes novas ("zero-day"). A necessidade de uma defesa que não dependa de assinaturas, mas que analise o comportamento dos processos, é fundamental para uma proteção eficaz.
+
+3. A Solução Proposta: Uma Arquitetura de EDR
+Para resolver este problema, foi desenvolvida uma solução de EDR que se divide em dois componentes estratégicos:
+
+O "Espião" (Kernel Mode): Um driver de mini filtro (RansomwareFilterDriver.sys) que opera no coração do sistema operativo. A sua função é interceptar, de forma transparente e com altíssima performance, todas as operações de escrita em ficheiros (IRP_MJ_WRITE) no sistema.
+
+O "Analista" (User Mode): Um serviço de monitorização (WatchdogService.exe) que se comunica com o driver. A sua função é receber os alertas em tempo real e aplicar uma heurística de detecção para decidir se um processo está a agir de forma maliciosa.
+
+Esta arquitetura modular garante que o componente crítico de performance (a interceção) permaneça no kernel, enquanto a lógica de negócio (a análise e a resposta) permaneça no modo de utilizador, onde é mais fácil de atualizar e manter.
+
+4. Detalhes Técnicos dos Componentes
+4.1. O Driver Minifiltro (RansomwareFilterDriver.c)
+Tecnologia: Escrito em C, utilizando o Windows Driver Kit (WDK) e o Visual Studio 2022.
+
+Mecanismo de Ação:
+
+Registo: O driver regista-se no Gestor de Filtros do Windows (FltRegisterFilter) para se posicionar na pilha de I/O do sistema de ficheiros.
+
+Comunicação: Cria uma Porta de Comunicação (FltCreateCommunicationPort) para estabelecer um canal seguro e bidirecional com o serviço em modo de utilizador.
+
+Interceção: A função de callback PreWriteCallback é acionada para cada operação de escrita. Ela captura o ID do processo e o nome do ficheiro, empacota essa informação e envia-a para o serviço Watchdog através da porta (FltSendMessage).
+
+4.2. O Serviço Watchdog (WatchdogService.cs)
+Tecnologia: Escrito em C#, utilizando .NET 8 e o Visual Studio 2022.
+
+Mecanismo de Ação:
+
+Conexão: Utiliza a API FilterConnectCommunicationPort para se conectar ao canal de comunicação aberto pelo driver.
+
+Audição: Entra num loop infinito, aguardando por mensagens do driver com FilterGetMessage.
+
+Heurística de Detecção: Para cada processo, mantém uma contagem de operações de escrita. Se a contagem ultrapassar um limiar (THRESHOLD) num determinado intervalo de tempo, o processo é sinalizado como malicioso.
+
+Resposta a Incidentes: Ao detectar uma ameaça, o serviço utiliza a API do Windows TerminateProcess para neutralizar o processo malicioso instantaneamente, prevenindo mais danos.
+
+5. Instruções de Compilação e Execução
+Ambiente de Compilação:
+
+Windows 11
+
+Visual Studio 2022 com a carga de trabalho "Desenvolvimento para desktop com C++"
+
+Windows Driver Kit (WDK) e Windows 11 SDK instalados como componentes do Visual Studio.
+
+Execução (em Máquina Virtual com Windows 11):
+
+Preparar o Ambiente: Abrir o PowerShell como Administrador, executar bcdedit /set testsigning on e reiniciar a VM.
+
+Juntar os Ficheiros: Colocar todos os ficheiros compilados (.sys, .inf, .cat, .exe, .dll) e o script install_and_run_DEFESA.ps1 na mesma pasta.
+
+Executar o Script: No PowerShell (Admin), navegar para a pasta e executar .\install_and_run_DEFESA.ps1.
+
+Demonstrar: O script carrega o driver e inicia o serviço Watchdog. Para testar, basta abrir e testar o arquivo ransomware.exe ver a atividade a ser reportada em tempo real na janela do Watchdog.
+
+6. Desafios do Desenvolvimento e Conclusão
+A jornada de desenvolvimento deste projeto foi uma imersão profunda na complexidade da programação de baixo nível e na arquitetura de segurança do Windows. Os principais desafios enfrentados incluíram:
+
+Configuração do Ambiente: A integração correta entre o Visual Studio, o WDK e o SDK provou ser a etapa mais crítica e propensa a erros.
+
+Assinatura de Drivers: Compreender e implementar o processo de assinatura de drivers para testes (Test Signing) foi fundamental para permitir que o driver fosse carregado pelo sistema operativo.
+
+Depuração de Kernel: A depuração de código em modo kernel é muito complexa e exigiu uma abordagem profunda de análise de logs e do Visualizador de Eventos para diagnosticar problemas de carregamento.
+
+Em conclusão, este projeto não só atingiu o seu objetivo de criar um sistema de defesa, mas também proporcionou um aprendizado inestimável sobre os desafios reais do desenvolvimento de software de segurança, onde o ambiente e a configuração são tão importantes quanto o próprio código.

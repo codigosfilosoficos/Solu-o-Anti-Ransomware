@@ -1,0 +1,74 @@
+;;
+;; RansomwareFilterDriver.inf - A Versão Final e Definitiva
+;; Foco: Passar na compilação E registar o minifiltro corretamente para o fltmc.
+;;
+
+[Version]
+Signature   = "$WINDOWS NT$"
+Class       = "ActivityMonitor"
+ClassGuid   = {b86dff51-a31e-4bac-b3cf-e8cfe75c9fc2} ; O GUID que o teu compilador exigiu
+Provider    = %ProviderName%
+DriverVer = 10/02/2025,16.37.9.331
+CatalogFile = RansomwareFilterDriver.cat
+PnpLockdown = 1
+
+[DestinationDirs]
+DefaultDestDir = 12 ; O destino correto: \Windows\System32\drivers
+
+[SourceDisksNames]
+1 = %DiskName%,,,""
+
+[SourceDisksFiles]
+RansomwareFilterDriver.sys = 1,,
+
+; --------------------------------------------------
+; Secção de Instalação para um driver "primitivo" (o que o compilador quer)
+; --------------------------------------------------
+
+[Manufacturer]
+%ProviderName% = Standard,NTamd64
+
+[Standard.NTamd64]
+%ServiceDescription% = RansomwareFilterDriver.Install, nt ; A correção ", nt" para passar na compilação
+
+[RansomwareFilterDriver.Install]
+CopyFiles = RansomwareFilterDriver.CopyFiles
+
+[RansomwareFilterDriver.CopyFiles]
+RansomwareFilterDriver.sys
+
+; --------------------------------------------------
+; Secção de Serviço, com a lógica completa para um Minifiltro
+; --------------------------------------------------
+
+[RansomwareFilterDriver.Install.Services]
+AddService = %ServiceName%,,RansomwareFilterDriver.Service
+
+[RansomwareFilterDriver.Service]
+DisplayName     = %ServiceName%
+Description     = %ServiceDescription%
+ServiceBinary   = %12%\RansomwareFilterDriver.sys ; Aponta para a pasta de drivers
+ServiceType     = 2 ; CRÍTICO: 2 = DRIVER DE SISTEMA DE FICHEIROS
+StartType       = 3 ; Inicia sob demanda (com fltmc load)
+ErrorControl    = 1 ; Padrão
+LoadOrderGroup  = "FSFilter Anti-Virus" ; CRÍTICO: Define o grupo do filtro
+Dependencies    = "FltMgr" ; CRÍTICO: Depende do Gestor de Filtros
+AddReg          = RansomwareFilterDriver.AddRegistry ; CRÍTICO: Adiciona as chaves da instância
+
+; CRÍTICO: Esta secção cria as "matrículas" que o FLTMC precisa de ver.
+[RansomwareFilterDriver.AddRegistry]
+HKR, "Instances", "DefaultInstance", 0x00000000, %DefaultInstance%
+HKR, "Instances\"%DefaultInstance%, "Altitude", 0x00000000, "328000"
+HKR, "Instances\"%DefaultInstance%, "Flags", 0x00010001, 0x0
+
+; --------------------------------------------------
+; Strings
+; --------------------------------------------------
+
+[Strings]
+ProviderName        = "Matheus FIAP"
+ServiceName         = "RansomwareFilterDriver"
+ServiceDescription  = "Filtro de Deteção de Ransomware (FIAP)"
+DiskName            = "Disco de Instalação do Filtro"
+DefaultInstance     = "RansomwareFilterDriverInstance" ; Nome simples, sem espaços ou acentos
+
